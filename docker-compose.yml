@@ -1,0 +1,47 @@
+services:
+  wordpress:
+    image: wordpress:latest
+    restart: unless-stopped
+    depends_on:
+      wp_db:
+        condition: service_healthy
+    volumes:
+      - wp_app:/var/www/html
+      - ../files/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
+    environment:
+      WORDPRESS_DB_HOST: wp_db:3306
+      WORDPRESS_DB_NAME: ${DB_NAME}
+      WORDPRESS_DB_USER: root
+      WORDPRESS_DB_PASSWORD: ${DB_PASSWORD}
+      WORDPRESS_DEBUG: ${WORDPRESS_DEBUG:-0}
+
+      # ✅ Aide beaucoup pour les uploads (WordPress/Apache/PHP)
+      PHP_MEMORY_LIMIT: 512M
+      PHP_MAX_EXECUTION_TIME: 300
+      PHP_MAX_INPUT_TIME: 300
+      PHP_UPLOAD_MAX_FILESIZE: 128M
+      PHP_POST_MAX_SIZE: 128M
+
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_MEMORY_LIMIT', '512M');
+        define('WP_MAX_MEMORY_LIMIT', '512M');
+        define('DISALLOW_FILE_EDIT', true);
+
+  wp_db:
+    image: mysql:8.4
+    restart: unless-stopped
+    volumes:
+      - wp_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  wp_app:
+  wp_data:
